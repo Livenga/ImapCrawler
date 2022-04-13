@@ -110,7 +110,7 @@ static class Program {
     }
 
     // 取得したデータを Csv 形式で保存.
-    var path = Path.Combine("csv", $"{config.Host}@{config.UserName}.{DateTime.Now.Ticks}.csv");
+    var path = Path.Combine("csv", $"{config.UserName}@{config.Host}.{DateTime.Now.Ticks}.csv");
     await Csv.WriteRecordsAsync(path, partialMessage);
 
     await imap.DisconnectAsync(true);
