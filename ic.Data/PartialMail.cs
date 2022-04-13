@@ -1,12 +1,12 @@
-namespace ImapCrawler;
-
-using System;
-
+namespace ic.Data;
 
 /// <summary></summary>
-public class CsvMail {
+public class PartialMail {
   /// <summary></summary>
-  public string Id { set; get; } = string.Empty;
+  public uint UniqueId { set; get; } = 0;
+
+  /// <summary></summary>
+  public string MessageId { set; get; } = string.Empty;
 
   /// <summary></summary>
   public string From { set; get; } = string.Empty;

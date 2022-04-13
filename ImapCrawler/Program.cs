@@ -1,5 +1,7 @@
 ﻿namespace ImapCrawler;
 
+using ic.Data;
+using ic.IO;
 using MailKit;
 using MailKit.Net.Imap;
 using MailKit.Security;
@@ -12,20 +14,15 @@ using System.Threading.Tasks;
 
 /// <summary></summary>
 static class Program {
+  private const string InvalidUniqueIdPath = "invalid_unique_id.json";
   /// <summary></summary>
   static async Task Main(string[] args) {
-#if DISPLAY_SECURE_SOCK_OPTIONS
-    foreach(var opt in Enum.GetValues(typeof(SecureSocketOptions)).Cast<SecureSocketOptions>()) {
-      Console.Error.WriteLine($"{opt}: {(short)opt}");
-    }
-#endif
     if(args.Length == 0)
       return;
 
     init();
 
     var config = await Json.ReadAsync<Config>(args[0]);
-
     var protocolLogger = new ProtocolLogger(
         fileName: Path.Combine("logs", $"{DateTime.Now.ToString("yyyy-MM-dd")}.log"),
         append: true);
@@ -36,6 +33,7 @@ static class Program {
     imap.Disconnected  += OnImapClientDisconnected;
     imap.Authenticated += OnImapClientAuthenticated;
 
+    // 接続と認証
     await imap.ConnectAsync(
         host: config.Host,
         port: config.Port,
@@ -47,56 +45,126 @@ static class Program {
 
     await imap.Inbox.OpenAsync(FolderAccess.ReadOnly);
 
-    //var partialMessage = imap.Inbox.Select(m => ToCsvMail(m));
+    // 固有ID一覧の取得
+    var uniqueIds = await imap.Inbox.SearchAsync(MailKit.Search.SearchQuery.All);
 
-    var partialMessage = new List<CsvMail>();
-    int cnt = 0;
-    foreach(var m in imap.Inbox) {
-      Console.Error.WriteLine($"# {++cnt}\t{m.Date.DateTime.ToString("yyyy-MM-dd HH:mm:ss")}\t{m.MessageId} {m.Subject}");
-      partialMessage.Add(ToCsvMail(m));
+    // もし前回のダウンロードが失敗で終了した場合,
+    // その途中からダウンロードを再開するため対象となる固有IDまでのリストを再生成する.
+    InvalidUniqueId? invalidUniqueId = null;
+    try {
+      if(File.Exists(InvalidUniqueIdPath)) {
+        invalidUniqueId = await Json.ReadAsync<InvalidUniqueId>(InvalidUniqueIdPath);
+      }
+    } catch { }
+
+    if(invalidUniqueId != null) {
+      try {
+        var target = uniqueIds.Select((id, idx) => new { Index = idx, UniqueId = id })
+          .First(o => o.UniqueId.Id == invalidUniqueId.UniqueId);
+        uniqueIds = uniqueIds.Skip(target.Index).ToList();
+
+        Console.Error.WriteLine($"# Target Unique ID[{target.Index}] : {target.UniqueId.Id}");
+      } catch(Exception except) {
+        Console.Error.WriteLine($"{except.GetType().FullName} {except.Message}");
+      }
     }
 
-    var path = Path.Combine("csv", $"{config.Host}-{config.UserName}.csv");
+    bool isCompleted = true;
+    int cnt = 0;
+    int uniqueIdCount = uniqueIds.Count();
+    Console.Error.WriteLine($"* Unique IDs Count: {uniqueIdCount}");
+
+    var partialMessage = new List<ic.Data.PartialMail>();
+    foreach(var uniqueId in uniqueIds) {
+      try {
+        var message = await imap.Inbox.GetMessageAsync(uniqueId);
+        Console.Error.WriteLine($"{++cnt} / {uniqueIdCount}\t{message.Date.DateTime.ToString("yyyy-MM-dd HH:mm:ss")}\t{message.MessageId} {message.Subject}");
+
+        partialMessage.Add(ToPartialMail(uniqueId, message));
+
+      } catch(Exception except) {
+        // 例外が発生した場合, foreach から抜け出しプログラムを終了させる.
+        Console.Error.WriteLine($"Invalid Mesage: {uniqueId}");
+        Console.Error.WriteLine($"{except.GetType().FullName} {except.Message}");
+        Console.Error.WriteLine(except.StackTrace);
+
+        isCompleted = false;
+        invalidUniqueId = new () {
+          UniqueId  = uniqueId.Id,
+          CreatedAt = DateTime.Now,
+        };
+
+        // 例外発生時の固有IDを記録.
+        try {
+          await Json.WriteAsync(InvalidUniqueIdPath, invalidUniqueId);
+        } catch(Exception) { }
+        break;
+      }
+    }
+
+    // 正常終了した場合, ダウンロード失敗時に記録された固有IDデータの削除を行う.
+    if(isCompleted) {
+      if(File.Exists(InvalidUniqueIdPath)) {
+        File.Delete(InvalidUniqueIdPath);
+      }
+    }
+
+    // 取得したデータを Csv 形式で保存.
+    var path = Path.Combine("csv", $"{config.Host}@{config.UserName}.{DateTime.Now.Ticks}.csv");
     await Csv.WriteRecordsAsync(path, partialMessage);
 
     await imap.DisconnectAsync(true);
   }
 
   /// <summary></summary>
-  private static CsvMail ToCsvMail(MimeKit.MimeMessage msg) =>
-    new CsvMail() {
-      Id               = msg.MessageId,
+  private static ic.Data.PartialMail ToPartialMail(
+      UniqueId uniqueId,
+      MimeKit.MimeMessage msg) =>
+    new ic.Data.PartialMail() {
+      UniqueId         = uniqueId.Id,
+      MessageId        = msg.MessageId,
       From             = ConvertAddressList(msg.From),
       To               = ConvertAddressList(msg.To),
       Cc               = ConvertAddressList(msg.Cc),
       Bcc              = ConvertAddressList(msg.Bcc),
       AttachmentsCount = msg.Attachments?.Count() ?? 0,
       Subject          = msg.Subject,
-      MailBody         = msg.TextBody,
+      MailBody         = ((msg.TextBody?.Length ?? 0) == 0) ? msg.HtmlBody ?? string.Empty : msg.TextBody ?? string.Empty,
       Date             = msg.Date.DateTime,
       RecentDate       = msg.ResentDate.DateTime,
     };
 
-  /// <summary></summary>
+  /// <summary>
+  /// InternetAddressList を文字列に変換
+  /// </summary>
   private static string ConvertAddressList(
       MimeKit.InternetAddressList addrs,
       string separator = ", ") =>
     string.Join(separator, addrs.Select(addr => ConvertAddress(addr)).ToArray());
 
-  /// <summary></summary>
+  /// <summary>
+  /// InternetAddress クラスを都合の良い文字列へ変換.
+  /// </summary>
   private static string ConvertAddress(MimeKit.InternetAddress addr) =>
     addr switch {
       MimeKit.MailboxAddress _addr => $"{_addr.Name}<{_addr.Address}>",
-      _ => $"!!! Not Supported(${addr.GetType().FullName}) !!!"
+      MimeKit.GroupAddress _addr => $"{_addr.Name}({ConvertAddressList(_addr.Members)})",
+      _ => throw new NotSupportedException(),
     };
 
-  /// <summary></summary>
+  /// <summary>
+  /// 初期化処理
+  /// プログラムにおいて必要なものを作成.
+  /// </summary>
   static void init() {
     CreateDirectory("logs");
     CreateDirectory("csv");
   }
 
-  /// <summary></summary>
+  /// <summary>
+  /// 作成対象のディレクトが存在する場合および例外発生を考慮した CreateDirectory
+  /// </summary>
+  /// <param name="path">作成ディレクトリパス</param>
   private static void CreateDirectory(string path) {
     try {
       if(! Directory.Exists(path))

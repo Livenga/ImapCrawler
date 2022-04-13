@@ -1,4 +1,4 @@
-namespace ImapCrawler;
+namespace ic.IO;
 
 using System.IO;
 using System.Text;

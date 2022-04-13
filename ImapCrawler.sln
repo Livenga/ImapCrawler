@@ -5,6 +5,12 @@ VisualStudioVersion = 16.0.30114.105
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ImapCrawler", "ImapCrawler\ImapCrawler.csproj", "{516E2424-EE61-4167-83F5-E67B705305FB}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ic.Data", "ic.Data\ic.Data.csproj", "{F8B055FE-B647-4508-AF97-4EA98B3A47BC}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ic.IO", "ic.IO\ic.IO.csproj", "{D06B712C-D605-4F48-826A-B24B34EF1C7B}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ic.Search", "ic.Search\ic.Search.csproj", "{F53D3F38-2207-4683-8839-D33253B5E5FC}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -18,5 +24,17 @@ Global
 		{516E2424-EE61-4167-83F5-E67B705305FB}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{516E2424-EE61-4167-83F5-E67B705305FB}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{516E2424-EE61-4167-83F5-E67B705305FB}.Release|Any CPU.Build.0 = Release|Any CPU
+		{F8B055FE-B647-4508-AF97-4EA98B3A47BC}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F8B055FE-B647-4508-AF97-4EA98B3A47BC}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F8B055FE-B647-4508-AF97-4EA98B3A47BC}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F8B055FE-B647-4508-AF97-4EA98B3A47BC}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D06B712C-D605-4F48-826A-B24B34EF1C7B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D06B712C-D605-4F48-826A-B24B34EF1C7B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D06B712C-D605-4F48-826A-B24B34EF1C7B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D06B712C-D605-4F48-826A-B24B34EF1C7B}.Release|Any CPU.Build.0 = Release|Any CPU
+		{F53D3F38-2207-4683-8839-D33253B5E5FC}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F53D3F38-2207-4683-8839-D33253B5E5FC}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F53D3F38-2207-4683-8839-D33253B5E5FC}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F53D3F38-2207-4683-8839-D33253B5E5FC}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal

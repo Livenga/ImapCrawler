@@ -16,8 +16,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\ic.IO\ic.IO.csproj" />
     <ProjectReference Include="..\ic.Data\ic.Data.csproj" />
+    <ProjectReference Include="..\ic.IO\ic.IO.csproj" />
   </ItemGroup>
 
 </Project>
