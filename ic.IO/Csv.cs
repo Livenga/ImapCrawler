@@ -34,6 +34,22 @@ public static class Csv {
     using var stream = File.Open(path, mode, FileAccess.Write);
     await WriteRecordsAsync(stream, records);
   }
+
+  /// <summary></summary>
+  public static async Task<IEnumerable<T>> ReadRecordsAsync<T>(Stream stream) {
+    using var reader = new StreamReader(stream);
+    using var csv = new CsvReader(reader, CultureInfo.InvariantCulture);
+    csv.Context.TypeConverterCache.RemoveConverter<DateTime>();
+    csv.Context.TypeConverterCache.AddConverter<DateTime>(new CsvDateTimeConverter());
+
+    return await csv.GetRecordsAsync<T>(default).ToArrayAsync();
+  }
+
+  /// <summary></summary>
+  public static async Task<IEnumerable<T>> ReadRecordsAsync<T>(string path) {
+    using var stream = File.Open(path, FileMode.Open, FileAccess.Read);
+    return await ReadRecordsAsync<T>(stream);
+  }
 }
 
 /// <summary></summary>
