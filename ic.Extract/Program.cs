@@ -42,8 +42,7 @@ class Program {
       var mails = (await Task.WhenAll(t.Select(p => ic.IO.Csv.ReadRecordsAsync<ic.Data.PartialMail>(p))))
         .SelectMany(m => m)
         .Where(m => m.AttachmentsCount > 0
-            && keywords.Any(k => m.Subject.Contains(k))
-            && keywords.Any(k => m.MailBody.Contains(k)));
+            && (keywords.Any(k => m.Subject.Contains(k)) || keywords.Any(k => m.MailBody.Contains(k))));
 
       if(mails.Count() == 0)
         continue;
