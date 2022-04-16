@@ -24,12 +24,34 @@ class Program {
           kvp => kvp.Username ?? throw new NullReferenceException(),
           kvp => kvp.Path);
 
+    var keywords = new string[args.Length - 1];
+    Array.Copy(
+        sourceArray: args,
+        sourceIndex: 1,
+        destinationArray: keywords,
+        destinationIndex: 0,
+        length: args.Length - 1);
+    if(keywords.Length == 0) {
+      Console.Error.WriteLine($"キーワードを指定してください.");
+      return;
+    }
+
+
     foreach(var t in targets) {
       Console.Error.WriteLine($"{t.Key}");
       var mails = (await Task.WhenAll(t.Select(p => ic.IO.Csv.ReadRecordsAsync<ic.Data.PartialMail>(p))))
         .SelectMany(m => m)
-        .Where(m => m.AttachmentsCount > 0 &&
-            (m.Subject.Contains("見積") || m.Subject.Contains("発注") || m.Subject.Contains("注文")));
+        .Where(m => m.AttachmentsCount > 0
+            && keywords.Any(k => m.Subject.Contains(k))
+            && keywords.Any(k => m.MailBody.Contains(k)));
+
+      if(mails.Count() == 0)
+        continue;
+
+      foreach(var mail in mails) {
+        Console.Error.WriteLine($"\t{mail.AttachmentsCount}\t{mail.Subject} {mail.To}");
+      }
+      Console.Error.WriteLine();
 
       var uniqueIds = mails.Select(m => m.UniqueId);
 
@@ -74,6 +96,15 @@ class Program {
         uids: uniqueIds.Select(u => new UniqueId(u)).ToList(),
         query: SearchQuery.All);
 
+    // 出力ディレクトリの作成
+    var outputDirectoryPath = Path.Combine(
+        "attachments",
+        DateTime.Now.ToString("yyyy-MM-dd"));
+    try {
+      if(! Directory.Exists(outputDirectoryPath))
+        Directory.CreateDirectory(outputDirectoryPath);
+    } catch { }
+
     var mCnt = uniqueIds.Count();
     int cnt = 0;
     foreach(var uid in uniqueIds.Select(u => new UniqueId(u))) {
@@ -83,7 +114,9 @@ class Program {
       foreach(var a in msg.Attachments
           .Where(a => a.IsAttachment && a is MimeKit.MimePart)
           .Cast<MimeKit.MimePart>()) {
-        var toFileName = Path.Combine("attachments", $"{uid}.{a.FileName}");
+        var toFileName = Path.Combine(
+            outputDirectoryPath,
+            $"{uid}.{a.FileName}");
 
         byte[] buffer;
         using(var ms = new MemoryStream()) {
